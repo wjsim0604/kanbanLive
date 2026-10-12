@@ -119,3 +119,25 @@ jobs:
           name: playwright-report
           path: e2e/playwright-report
           retention-days: 7
+
+  deploy:
+    name: Deploy to Fly.io
+    # main 병합 시, 모든 검증이 통과하고 FLY_API_TOKEN 시크릿이 설정된 경우에만 배포
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [check, api-e2e, e2e]
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip when FLY_API_TOKEN is not configured
+        if: env.FLY_API_TOKEN == ''
+        run: echo "::notice::FLY_API_TOKEN 시크릿이 없어 배포를 건너뜁니다 (docs/deployment.md 참고)"
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: env.FLY_API_TOKEN != ''
+      - name: flyctl deploy
+        if: env.FLY_API_TOKEN != ''
+        run: flyctl deploy --remote-only --build-arg GIT_SHA=${{ github.sha }}

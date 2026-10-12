@@ -24,7 +24,9 @@ RUN pnpm --filter @kanban/api deploy --prod --legacy --ignore-scripts /out \
   && cd /out && node node_modules/prisma/build/index.js generate
 
 FROM node:22-alpine AS runtime
+ARG GIT_SHA=dev
 ENV NODE_ENV=production \
+    GIT_SHA=$GIT_SHA \
     PORT=3000 \
     WEB_DIST_DIR=/app/web
 WORKDIR /app
