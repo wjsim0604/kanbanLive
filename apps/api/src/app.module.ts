@@ -1,9 +1,25 @@
 import { Module } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
+import { AuthModule } from './auth/auth.module';
+import { BoardsModule } from './boards/boards.module';
+import { CardsModule } from './cards/cards.module';
+import { AppConfigModule } from './common/config.module';
+import { EventsModule } from './events/events.module';
 import { HealthModule } from './health/health.module';
+import { ListsModule } from './lists/lists.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RedisModule } from './redis/redis.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), PrismaModule, HealthModule],
+  imports: [
+    AppConfigModule,
+    PrismaModule,
+    RedisModule,
+    EventsModule,
+    AuthModule,
+    BoardsModule,
+    ListsModule,
+    CardsModule,
+    HealthModule,
+  ],
 })
 export class AppModule {}

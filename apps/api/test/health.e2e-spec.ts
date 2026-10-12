@@ -1,24 +1,20 @@
-import { INestApplication } from '@nestjs/common';
-import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import type { App } from 'supertest/types';
-import { AppModule } from '../src/app.module';
+import { createTestApp, type TestApp } from './helpers';
 
-describe('GET /health (실제 DB)', () => {
-  let app: INestApplication<App>;
-
+describe('GET /api/health (실제 DB/Redis)', () => {
+  let app: TestApp;
   beforeAll(async () => {
-    const moduleRef = await Test.createTestingModule({ imports: [AppModule] }).compile();
-    app = moduleRef.createNestApplication();
-    await app.init();
+    app = await createTestApp();
+  });
+  afterAll(() => app.close());
+
+  it('DB와 Redis에 연결되어 ok를 반환한다', async () => {
+    const res = await request(app.getHttpServer()).get('/api/health').expect(200);
+    expect(res.body).toMatchObject({ status: 'ok', db: 'up', redis: 'up' });
   });
 
-  afterAll(async () => {
-    await app.close();
-  });
-
-  it('DB에 연결되어 ok를 반환한다', async () => {
-    const res = await request(app.getHttpServer()).get('/health').expect(200);
-    expect(res.body).toMatchObject({ status: 'ok', db: 'up' });
+  it('Swagger 문서를 /docs-json 으로 제공한다', async () => {
+    const res = await request(app.getHttpServer()).get('/docs-json').expect(200);
+    expect(res.body).toHaveProperty('paths./api/cards/{id}/move');
   });
 });
