@@ -10,7 +10,13 @@ import {
 import { api, ApiError, errorMessage } from '@/lib/api';
 import { queryKeys } from '@/lib/query-client';
 import { getBoardCache, updateBoardCache } from './board-cache';
-import { moveCardLocally, moveListLocally, restoreCard, restoreList } from './optimistic';
+import {
+  moveCardLocally,
+  moveListLocally,
+  patchCardLocally,
+  restoreCard,
+  restoreList,
+} from './optimistic';
 
 /**
  * 보드 변경 훅. 공통 흐름:
@@ -81,11 +87,21 @@ export function useBoardMutations(boardId: string) {
   const updateCard = useMutation({
     mutationFn: (v: { cardId: string; patch: Parameters<typeof api.updateCard>[1] }) =>
       api.updateCard(v.cardId, v.patch),
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: key });
+      const previous = getBoardCache(qc, boardId)?.cards.find((c) => c.id === v.cardId);
+      updateBoardCache(qc, boardId, (s) => patchCardLocally(s, v.cardId, v.patch));
+      return { previous };
+    },
     onSuccess: applyCard,
-    onError: (err) => {
+    onError: (err, _v, ctx) => {
       // 동시 수정 충돌: 서버의 최신 카드로 갱신하고 사용자에게 알린다.
       if (err instanceof ApiError && err.code === 'VERSION_CONFLICT' && err.body.current) {
-        applyCard(err.body.current as CardDto);
+        const current = err.body.current as CardDto;
+        updateBoardCache(qc, boardId, (s) => upsertCard(s, current, true));
+      } else if (ctx?.previous) {
+        const prev = ctx.previous;
+        updateBoardCache(qc, boardId, (s) => restoreCard(s, prev));
       }
       fail(err);
     },

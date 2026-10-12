@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { applyBoardEvent, EventSequencer } from './board-state';
+import { applyBoardEvent, EventSequencer, upsertCard } from './board-state';
 import type { BoardSnapshotDto, CardDto, ListDto } from './domain';
 import type { BoardEvent, BoardEventInput } from './events';
 
@@ -54,6 +54,14 @@ describe('applyBoardEvent', () => {
       ev({ type: 'card:updated', payload: { card: card('c1', 'L1', 'a0', 2) } }),
     );
     expect(stale.cards.find((c) => c.id === 'c1')).toMatchObject({ listId: 'L2' });
+  });
+
+  it('authoritative upsert는 같은 version이어도 덮어쓴다 (충돌 응답으로 낙관적 변경 폐기)', () => {
+    const dirty = { ...snapshot(), cards: [{ ...card('c1', 'L1', 'a0', 2), title: 'local edit' }] };
+    const server = { ...card('c1', 'L1', 'a0', 2), title: 'server' };
+    expect(upsertCard(dirty, server).cards[0]?.title).toBe('local edit');
+    expect(upsertCard(dirty, server, true).cards[0]?.title).toBe('server');
+    expect(upsertCard(dirty, { ...server, version: 1 }, true).cards[0]?.title).toBe('local edit');
   });
 
   it('같은 이벤트를 두 번 적용해도 결과가 같다 (멱등)', () => {

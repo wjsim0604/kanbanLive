@@ -71,9 +71,22 @@ function reduce(s: BoardSnapshotDto, e: BoardEvent): BoardSnapshotDto {
   }
 }
 
-export function upsertCard(s: BoardSnapshotDto, card: CardDto): BoardSnapshotDto {
+/**
+ * @param authoritative true면 version이 같아도 덮어쓴다.
+ *   낙관적 수정은 version을 올리지 않으므로, 같은 version의 로컬 카드에는 확정되지 않은 변경이 섞여 있을 수 있다.
+ *   서버가 "이것이 현재 상태"라고 알려준 경우(409 충돌 응답 등)에는 그 값을 그대로 채택한다.
+ */
+export function upsertCard(
+  s: BoardSnapshotDto,
+  card: CardDto,
+  authoritative = false,
+): BoardSnapshotDto {
   const existing = s.cards.find((c) => c.id === card.id);
-  if (existing && existing.version >= card.version) return s;
+  if (
+    existing &&
+    (authoritative ? existing.version > card.version : existing.version >= card.version)
+  )
+    return s;
   const others = s.cards.filter((c) => c.id !== card.id);
   return { ...s, cards: sortByPosition([...others, card]) };
 }

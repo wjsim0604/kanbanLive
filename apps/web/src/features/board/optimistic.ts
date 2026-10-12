@@ -60,3 +60,31 @@ export function restoreList(s: BoardSnapshotDto, previous: ListDto): BoardSnapsh
   const others = s.lists.filter((l) => l.id !== previous.id);
   return { ...s, lists: sortByPosition([...others, previous]) };
 }
+
+export interface CardPatch {
+  title?: string;
+  description?: string;
+  assigneeId?: string | null;
+  dueDate?: string | null;
+}
+
+/** 필드 수정의 낙관적 반영. dueDate는 'YYYY-MM-DD'를 ISO로 맞춘다. */
+export function patchCardLocally(
+  s: BoardSnapshotDto,
+  cardId: string,
+  patch: CardPatch,
+): BoardSnapshotDto {
+  return {
+    ...s,
+    cards: s.cards.map((c) => {
+      if (c.id !== cardId) return c;
+      const next: CardDto = { ...c };
+      if (patch.title !== undefined) next.title = patch.title;
+      if (patch.description !== undefined) next.description = patch.description;
+      if (patch.assigneeId !== undefined) next.assigneeId = patch.assigneeId;
+      if (patch.dueDate !== undefined)
+        next.dueDate = patch.dueDate ? new Date(patch.dueDate).toISOString() : null;
+      return next;
+    }),
+  };
+}
