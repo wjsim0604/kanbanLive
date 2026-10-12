@@ -11,16 +11,21 @@ import { api, ApiError, errorMessage } from '@/lib/api';
 import { queryKeys } from '@/lib/query-client';
 import { useUiStore } from '@/stores/ui';
 import { BoardCanvas } from './board-canvas';
-import { BoardTitle, MembersDialog } from './board-header';
+import { BoardTitle, MembersDialog, PresenceAvatars } from './board-header';
 import { CardDetailDialog } from './card-detail-dialog';
+import { ConnectionBadge } from './connection-badge';
+import { adoptSnapshot } from './realtime-state';
+import { useBoardRealtime } from './use-board-realtime';
 
 export function BoardPage() {
   const { boardId = '' } = useParams();
   const closeCard = useUiStore((s) => s.closeCard);
   const { data, isPending, isError, error, refetch } = useQuery({
     queryKey: queryKeys.board(boardId),
-    queryFn: () => api.board(boardId),
+    // 스냅샷을 받는 동안 도착한 이벤트도 반영되도록 실시간 상태와 맞춘다.
+    queryFn: async () => adoptSnapshot(boardId, await api.board(boardId)),
   });
+  const { status, presence } = useBoardRealtime(boardId, !!data);
 
   useEffect(() => closeCard, [boardId, closeCard]);
 
@@ -41,6 +46,8 @@ export function BoardPage() {
               </Badge>
             )}
             <div className="ml-auto flex items-center gap-3">
+              <PresenceAvatars users={presence} />
+              <ConnectionBadge status={status} />
               <MembersDialog snapshot={data} />
             </div>
           </>
