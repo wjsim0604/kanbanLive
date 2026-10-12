@@ -1,5 +1,8 @@
+import type Redis from 'ioredis';
 import request from 'supertest';
 import type { BoardSummaryDto, CardDto, ListDto, SyncResponse } from '@kanban/shared';
+import { logKey } from '../src/events/board-events.service';
+import { REDIS } from '../src/redis/redis.module';
 import {
   createBoard,
   createTestApp,
@@ -154,6 +157,31 @@ describe('Realtime gateway (e2e)', () => {
     if (!res.ok || res.data.kind !== 'events') throw new Error('expected events');
     expect(res.data.events.map((e) => e.seq)).toEqual([lastSeq + 1, lastSeq + 2]);
     expect(res.data.seq).toBe(lastSeq + 2);
+  });
+
+  it('sync: Redis 이벤트 로그 범위를 벗어나면(오래 끊김) 전체 스냅샷을 돌려준다', async () => {
+    const s = await open(owner);
+    const join = await emitAck<{ seq: number }>(s, 'board:join', { boardId: board.id });
+    const lastSeq = join.ok ? join.data.seq : 0;
+    for (const title of ['old1', 'old2', 'old3']) {
+      await http()
+        .post(`/api/boards/${board.id}/lists`)
+        .set(owner.auth)
+        .send({ title })
+        .expect(201);
+    }
+    // 로그가 잘려 나간 상황을 재현: 가장 오래된 이벤트들을 지운다
+    const redis = app.get<Redis>(REDIS);
+    await redis.zremrangebyrank(logKey(board.id), 0, -2);
+
+    const res = await emitAck<SyncResponse>(s, 'sync', { boardId: board.id, lastSeq });
+    expect(res).toMatchObject({ ok: true, data: { kind: 'snapshot' } });
+    if (res.ok && res.data.kind === 'snapshot') {
+      expect(res.data.snapshot.lists.map((l) => l.title)).toEqual(
+        expect.arrayContaining(['old1', 'old2', 'old3']),
+      );
+      expect(res.data.snapshot.seq).toBeGreaterThanOrEqual(lastSeq + 3);
+    }
   });
 
   it('sync: 서버보다 앞선(초기화된) lastSeq면 스냅샷을 돌려준다', async () => {
