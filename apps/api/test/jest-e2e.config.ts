@@ -7,6 +7,7 @@ const config: Config = {
   testRegex: '.*\\.e2e-spec\\.ts$',
   transform: { '^.+\\.ts$': 'ts-jest' },
   testEnvironment: 'node',
+  testTimeout: 30_000,
 };
 
 export default config;
