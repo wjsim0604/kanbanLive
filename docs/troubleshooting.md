@@ -24,3 +24,37 @@
   - 마이그레이션 SQL에서 `position` 컬럼을 `TEXT COLLATE "C"`로 만들었다. Prisma 스키마에는 collation 속성이 없지만 introspection에서 차이로 잡히지 않아 drift가 생기지 않는다.
   - 애플리케이션에서도 `sortByPosition()`(코드 포인트 비교)으로 한 번 더 정렬해, DB 설정과 무관하게 결과가 같게 했다.
 - **결과**: `prisma migrate dev`를 다시 실행해도 drift 없음. 정렬 결과가 shared 단위 테스트의 불변식과 일치한다.
+
+## 4. 동시에 같은 위치로 카드를 넣으면 position이 중복됨 (Phase 5)
+
+- **문제**: 두 사용자가 거의 동시에 서로 다른 카드를 같은 두 카드 사이로 옮기면, 두 카드의 `position`이 같아져 순서가 불안정해진다(새로고침할 때마다 순서가 바뀜).
+- **원인**:
+  - 두 요청이 각자 같은 이웃(`lo`, `hi`)을 읽고 `generateKeyBetween(lo, hi)`를 계산한다. 결정적 함수라 같은 키가 나온다.
+  - 카드 행 단위의 낙관적 잠금(version)은 **서로 다른 카드**의 충돌을 막지 못한다.
+- **해결**:
+  - 모든 보드 쓰기를 `BoardWriter.write()`로 모았다. 트랜잭션 시작 시 `SELECT ... FROM "Board" WHERE id = $1 FOR UPDATE`로 보드 행을 잠근다.
+  - 두 번째 요청은 첫 번째가 커밋된 뒤의 이웃을 읽으므로 항상 다른 키가 나온다.
+  - seq도 잠금 안에서 발급해 이벤트 순서와 커밋 순서를 일치시켰다 (ADR 003).
+- **결과**:
+  - `concurrency.e2e-spec.ts`에서 8개 카드를 같은 위치로 동시에 옮겨도 position이 모두 고유하다.
+  - 이벤트를 받은 클라이언트 상태가 DB 스냅샷과 같다.
+
+## 5. 충돌 알림 후에도 내 (거절된) 수정 내용이 화면에 남음 (Phase 5)
+
+- **문제**: Alice와 Bob이 같은 카드 설명을 동시에 편집했다. Bob이 늦게 저장하면 409 `VERSION_CONFLICT` 토스트는 뜨지만, 화면에는 서버가 거절한 Bob의 설명이 그대로 남았다. (Playwright 충돌 시나리오에서 발견)
+- **원인**:
+  - 낙관적 업데이트는 version을 올리지 않는다. Bob의 로컬 카드는 "Alice 이벤트로 받은 v2 + Bob의 미확정 설명" 상태였다.
+  - 409 응답의 `current`(v2)를 `upsertCard()`로 반영하려 했지만, 리듀서는 **version이 더 클 때만** 덮어쓰므로 같은 v2를 무시했다.
+- **해결**: `upsertCard(state, card, authoritative)` 옵션을 추가했다. 서버가 "이것이 현재 상태"라고 확정해 준 응답(409의 `current`)은 version이 같아도 덮어쓴다. 일반 브로드캐스트는 기존처럼 더 큰 version만 반영한다(멱등성 유지).
+- **결과**:
+  - E2E `conflict.spec.ts`에서 Bob 화면이 Alice의 설명으로 바뀐다.
+  - shared 단위 테스트에 같은 version의 authoritative/non-authoritative 경우를 추가했다.
+
+## 6. 스냅샷을 다시 받는 사이에 도착한 이벤트가 사라짐 (Phase 4)
+
+- **문제**: 보드 화면에 다시 들어올 때 TanStack Query가 스냅샷을 다시 가져온다. 그 요청이 진행되는 동안 도착해 캐시에 적용한 이벤트가, 응답으로 캐시를 통째로 덮을 때 사라질 수 있었다.
+- **원인**:
+  - 스냅샷은 요청 시점의 seq(예: 10)를 기준으로 한다.
+  - 응답 도착 전에 이미 적용한 seq 11 이벤트는 sequencer의 `lastSeq`에도 반영되어 있다. 그래서 다시 오지 않는다.
+- **해결**: 최근 적용한 이벤트 200개를 `realtime-state.ts`에 보관한다. 새 스냅샷을 채택할 때(`adoptSnapshot`) 스냅샷 seq보다 큰 이벤트를 다시 적용한다. 리듀서가 version 기반으로 멱등이라 다시 적용해도 안전하다.
+- **결과**: 스냅샷 재요청과 실시간 이벤트가 겹쳐도 상태가 유실되지 않는다.
