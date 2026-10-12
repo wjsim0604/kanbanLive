@@ -1,6 +1,13 @@
 # 기본: 인프라(PostgreSQL, Redis)만 실행 → docker compose up -d
-# 전체:  api/web까지 컨테이너로 실행 → docker compose --profile app up --build
+# 전체:  앱까지 컨테이너로 실행        → docker compose --profile app up --build  (http://localhost:3000)
+# 확장:  api 2대 + Nginx              → docker compose -f docker-compose.yml -f docker-compose.scale.yml --profile scale up --build  (http://localhost:8080)
 name: kanban-live
+
+x-app-env: &app-env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-kanban}:${POSTGRES_PASSWORD:-kanban}@postgres:5432/${POSTGRES_DB:-kanban}?schema=public
+  REDIS_URL: redis://redis:6379
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-local-compose-secret}
+  WEB_ORIGIN: ${WEB_ORIGIN:-http://localhost:3000}
 
 services:
   postgres:
@@ -31,40 +38,29 @@ services:
       timeout: 3s
       retries: 10
 
-  api:
-    profiles: [app]
-    build:
-      context: .
-      dockerfile: apps/api/Dockerfile
-    environment:
-      PORT: 3000
-      DATABASE_URL: postgresql://${POSTGRES_USER:-kanban}:${POSTGRES_PASSWORD:-kanban}@postgres:5432/${POSTGRES_DB:-kanban}?schema=public
-      REDIS_URL: redis://redis:6379
-      WEB_ORIGIN: http://localhost:8080
-    ports:
-      - '3000:3000'
+  # 스키마 마이그레이션 (한 번 실행 후 종료)
+  migrate:
+    profiles: [app, scale]
+    build: .
+    image: kanban-live
+    command: ['node', 'node_modules/prisma/build/index.js', 'migrate', 'deploy']
+    environment: *app-env
     depends_on:
       postgres:
         condition: service_healthy
+
+  app:
+    profiles: [app]
+    image: kanban-live
+    build: .
+    environment: *app-env
+    ports:
+      - '3000:3000'
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
       redis:
         condition: service_healthy
-    healthcheck:
-      test: ['CMD', 'wget', '-qO-', 'http://localhost:3000/api/health']
-      interval: 10s
-      timeout: 3s
-      retries: 5
-
-  web:
-    profiles: [app]
-    build:
-      context: .
-      dockerfile: apps/web/Dockerfile
-      args:
-        VITE_API_URL: http://localhost:3000
-    ports:
-      - '8080:80'
-    depends_on:
-      - api
 
 volumes:
   postgres-data:
