@@ -1,4 +1,5 @@
-// 데이터 모델은 Phase 2에서 CLAUDE.md 4장 기준으로 추가한다.
+// CLAUDE.md 4장 데이터 모델.
+// position 컬럼은 마이그레이션 SQL에서 COLLATE "C"로 지정한다 (fractional indexing은 바이트 순 정렬 필요).
 
 generator client {
   provider = "prisma-client-js"
@@ -7,4 +8,128 @@ generator client {
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum Role {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id           String   @id @default(uuid()) @db.Uuid
+  email        String   @unique
+  passwordHash String
+  name         String
+  createdAt    DateTime @default(now())
+
+  ownedBoards   Board[]
+  memberships   BoardMember[]
+  assignedCards Card[]         @relation("CardAssignee")
+  comments      Comment[]
+  activities    Activity[]
+  refreshTokens RefreshToken[]
+}
+
+/// refresh token은 해시만 저장하고 회전(rotation)할 때마다 이전 토큰을 폐기한다.
+model RefreshToken {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Board {
+  id        String   @id @default(uuid()) @db.Uuid
+  title     String
+  ownerId   String   @db.Uuid
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  owner      User          @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  members    BoardMember[]
+  lists      List[]
+  activities Activity[]
+
+  @@index([ownerId])
+}
+
+model BoardMember {
+  boardId   String   @db.Uuid
+  userId    String   @db.Uuid
+  role      Role
+  createdAt DateTime @default(now())
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([boardId, userId])
+  @@index([userId])
+}
+
+model List {
+  id        String   @id @default(uuid()) @db.Uuid
+  boardId   String   @db.Uuid
+  title     String
+  position  String
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+
+  board Board  @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  cards Card[]
+
+  @@index([boardId, position])
+}
+
+model Card {
+  id          String    @id @default(uuid()) @db.Uuid
+  listId      String    @db.Uuid
+  title       String
+  description String    @default("")
+  position    String
+  assigneeId  String?   @db.Uuid
+  dueDate     DateTime?
+  version     Int       @default(1)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  list     List      @relation(fields: [listId], references: [id], onDelete: Cascade)
+  assignee User?     @relation("CardAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  comments Comment[]
+
+  @@index([listId, position])
+  @@index([assigneeId])
+}
+
+model Comment {
+  id        String   @id @default(uuid()) @db.Uuid
+  cardId    String   @db.Uuid
+  authorId  String   @db.Uuid
+  content   String
+  createdAt DateTime @default(now())
+
+  card   Card @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([cardId, createdAt])
+}
+
+model Activity {
+  id        String   @id @default(uuid()) @db.Uuid
+  boardId   String   @db.Uuid
+  actorId   String   @db.Uuid
+  type      String
+  payload   Json
+  createdAt DateTime @default(now())
+
+  board Board @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  actor User  @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([boardId, createdAt])
 }
