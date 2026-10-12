@@ -1,0 +1,10 @@
+// 데이터 모델은 Phase 2에서 CLAUDE.md 4장 기준으로 추가한다.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
