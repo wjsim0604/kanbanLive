@@ -28,6 +28,14 @@
 - UI는 **shadcn/ui**를 사용한다. 컴포넌트는 `apps/web/src/components/ui`에 두고 `pnpm dlx shadcn@latest add <name>`(apps/web에서)로 추가한다. 직접 스타일링보다 shadcn 컴포넌트 + 테마 토큰(`bg-primary`, `text-muted-foreground` 등)을 우선한다.
 - `@kanban/shared`: api는 빌드 산출물(`dist`, CJS)을, web은 Vite alias로 소스를 직접 참조한다. api 타입체크/실행 전 `pnpm --filter @kanban/shared build` 필요.
 - 주요 명령: `pnpm dev`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm format`
+- 통합 테스트: `pnpm --filter @kanban/api test:e2e` (PostgreSQL/Redis 필요), `pnpm --filter @kanban/e2e test:e2e` (서버 실행 중), 부하: `pnpm --filter @kanban/load move-latency`
+
+**현재 구현 상태 (Phase 1~8 완료)**
+
+- 모든 보드 쓰기는 `BoardWriter.write()`(보드별 대기열 → `FOR UPDATE` → seq 발급 → Activity → COMMIT → 이벤트 발행)를 거친다. 새 쓰기 기능도 반드시 이 경로를 쓴다.
+- 순서 계산(`planInsert`)과 클라이언트 리듀서(`applyBoardEvent`, `EventSequencer`)는 `packages/shared`에 있다. 서버와 클라이언트가 같은 코드를 쓴다.
+- 서버 → 클라이언트 변경 이벤트는 단일 소켓 이벤트 `board:event` 봉투로 보낸다(ADR 005). 새 이벤트 타입은 `BoardEventPayloads`와 `applyBoardEvent`에 함께 추가한다.
+- 문서: `docs/architecture.md`, `docs/decisions/`(ADR 001~008), `docs/troubleshooting.md`, `docs/performance.md`, `docs/deployment.md`
 
 ## 3. 기능 명세
 
