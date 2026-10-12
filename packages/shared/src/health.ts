@@ -4,8 +4,10 @@ export type ServiceStatus = 'up' | 'down';
 export interface HealthResponse {
   status: 'ok' | 'error';
   db: ServiceStatus;
+  redis: ServiceStatus;
   uptime: number;
   timestamp: string;
 }
 
-export const isHealthy = (res: HealthResponse): boolean => res.status === 'ok' && res.db === 'up';
+export const isHealthy = (res: HealthResponse): boolean =>
+  res.status === 'ok' && res.db === 'up' && res.redis === 'up';

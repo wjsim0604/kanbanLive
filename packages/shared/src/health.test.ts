@@ -4,6 +4,7 @@ import { isHealthy, type HealthResponse } from './health';
 const base: HealthResponse = {
   status: 'ok',
   db: 'up',
+  redis: 'up',
   uptime: 1,
   timestamp: new Date(0).toISOString(),
 };
