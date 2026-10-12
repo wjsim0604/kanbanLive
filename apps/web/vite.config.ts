@@ -14,6 +14,11 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    proxy: {
+      '/api': 'http://localhost:3000',
+      '/docs': 'http://localhost:3000',
+      '/socket.io': { target: 'http://localhost:3000', ws: true },
+    },
   },
   test: {
     environment: 'jsdom',
