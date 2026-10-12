@@ -58,3 +58,17 @@
   - 응답 도착 전에 이미 적용한 seq 11 이벤트는 sequencer의 `lastSeq`에도 반영되어 있다. 그래서 다시 오지 않는다.
 - **해결**: 최근 적용한 이벤트 200개를 `realtime-state.ts`에 보관한다. 새 스냅샷을 채택할 때(`adoptSnapshot`) 스냅샷 seq보다 큰 이벤트를 다시 적용한다. 리듀서가 version 기반으로 멱등이라 다시 적용해도 안전하다.
 - **결과**: 스냅샷 재요청과 실시간 이벤트가 겹쳐도 상태가 유실되지 않는다.
+
+## 7. 뷰어가 카드 상세를 열 수 없음 (Phase 6)
+
+- **문제**: 뷰어로 접속하면 카드를 클릭해도 상세 모달이 열리지 않는다. Playwright에서는 `waiting for element to be ... enabled`에서 멈췄다.
+- **원인**: dnd-kit `useSortable({ disabled: true })`가 돌려주는 `attributes`에 `aria-disabled="true"`가 들어 있다. 카드(`role="button"`) 전체가 비활성 버튼으로 노출되었다. 스크린 리더 사용자도 카드를 열 수 없는 접근성 문제였다.
+- **해결**: 드래그 비활성 여부와 상관없이 카드에 `aria-disabled={undefined}`를 지정해 덮어쓴다. 드래그 가능 여부는 `listeners`와 sensor가 판단한다.
+- **결과**: 뷰어도 카드 상세(읽기 전용)를 열 수 있다. E2E `reconnect.spec.ts`의 권한 시나리오가 통과한다.
+
+## 8. `pnpm deploy` 산출물에서 Prisma CLI 실행 실패 (Phase 6)
+
+- **문제**: Docker 빌드 중 `./node_modules/.bin/prisma generate`가 exit 127(command not found)로 실패했다.
+- **원인**: `pnpm deploy --ignore-scripts`로 만든 독립 디렉터리에는 이 경로의 bin 링크가 없었다.
+- **해결**: 실행 경로를 `node node_modules/prisma/build/index.js`로 직접 지정했다. 운영 환경에서도 `migrate deploy`가 필요해 `prisma`를 dependencies로 옮겼다. compose의 `migrate` 서비스도 같은 경로를 쓴다.
+- **결과**: 단일 앱 이미지 빌드에 성공했다. 컨테이너 2대 + Nginx 구성에서 E2E가 전부 통과했다.

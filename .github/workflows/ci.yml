@@ -100,6 +100,7 @@ jobs:
       JWT_ACCESS_SECRET: ci-secret
       WEB_ORIGIN: http://localhost:3000
       E2E_START_SERVER: '1'
+      MULTI_SERVER_URLS: http://localhost:3000,http://localhost:3001
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4

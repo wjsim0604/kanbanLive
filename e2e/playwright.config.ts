@@ -28,13 +28,14 @@ export default defineConfig({
       use: { ...devices['Desktop Chrome'], viewport: { width: 1400, height: 900 } },
     },
   ],
+  // CI: 같은 DB/Redis를 쓰는 api 인스턴스 2개(3000, 3001)를 띄워 멀티 서버 동기화까지 검증한다.
   webServer: process.env.E2E_START_SERVER
-    ? {
+    ? [3000, 3001].map((port, i) => ({
         command: 'node ../apps/api/dist/main.js',
-        url: 'http://localhost:3000/api/health',
+        url: `http://localhost:${port}/api/health`,
         reuseExistingServer: false,
         timeout: 60_000,
-        env: { WEB_DIST_DIR: '../apps/web/dist', PORT: '3000' },
-      }
+        env: { WEB_DIST_DIR: '../apps/web/dist', PORT: String(port), INSTANCE_ID: `app${i + 1}` },
+      }))
     : undefined,
 });
