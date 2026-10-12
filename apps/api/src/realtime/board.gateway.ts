@@ -89,7 +89,7 @@ export class BoardGateway
   }
 
   handleConnection(socket: AppSocket): void {
-    this.logger.debug(`connected ${socket.id} (${socket.data.user?.email})`);
+    this.logger.debug({ socketId: socket.id, userId: socket.data.user?.id }, 'socket connected');
   }
 
   handleDisconnect(socket: AppSocket): void {

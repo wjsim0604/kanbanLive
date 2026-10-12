@@ -8,6 +8,7 @@ const config: Config = {
   transform: { '^.+\\.ts$': 'ts-jest' },
   testEnvironment: 'node',
   testTimeout: 30_000,
+  setupFiles: ['<rootDir>/setup-env.ts'],
 };
 
 export default config;

@@ -9,6 +9,7 @@ import {
 import { Prisma } from '@prisma/client';
 import type { Request, Response } from 'express';
 import type { ApiErrorBody } from '@kanban/shared';
+import { captureException } from './sentry';
 
 interface ExceptionResponseObject {
   message?: string | string[];
@@ -33,6 +34,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
     const { status, body } = this.toBody(exception);
     if (status >= 500) {
       this.logger.error(exception instanceof Error ? exception.stack : String(exception));
+      captureException(exception, { path: req.url, method: req.method });
     }
     res.status(status).json({
       ...body,
