@@ -1,0 +1,61 @@
+{
+  "label": "hot-baseline",
+  "scenario": {
+    "clients": 50,
+    "boards": 10,
+    "hotClients": 40,
+    "intervalMs": 250,
+    "hotIntervalMs": 100,
+    "durationSec": 30
+  },
+  "moves": 5251,
+  "throughputPerSec": 175,
+  "errorRate": 0,
+  "request": {
+    "samples": 5251,
+    "avg": 516.3,
+    "p50": 513.4,
+    "p95": 617.7,
+    "p99": 680.3
+  },
+  "propagation": {
+    "samples": 118964,
+    "avg": 547,
+    "p50": 546.9,
+    "p95": 644.2,
+    "p99": 697.5
+  },
+  "hotBoard": {
+    "request": {
+      "samples": 2449,
+      "avg": 554.6,
+      "p50": 551.3,
+      "p95": 648.2,
+      "p99": 701.7
+    },
+    "propagation": {
+      "samples": 107756,
+      "avg": 553.8,
+      "p50": 550.4,
+      "p95": 647.1,
+      "p99": 700.3
+    }
+  },
+  "coldBoards": {
+    "request": {
+      "samples": 2802,
+      "avg": 482.9,
+      "p50": 477.4,
+      "p95": 564.6,
+      "p99": 621.1
+    },
+    "propagation": {
+      "samples": 11208,
+      "avg": 482.3,
+      "p50": 476.8,
+      "p95": 564.1,
+      "p99": 620.8
+    }
+  },
+  "converged": "90/90"
+}

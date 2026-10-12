@@ -1,0 +1,23 @@
+{
+  "label": "baseline",
+  "clients": 50,
+  "durationSec": 30,
+  "intervalMs": 250,
+  "moves": 2848,
+  "throughputPerSec": 94.9,
+  "errorRate": 0,
+  "request": {
+    "avg": 528.1,
+    "p50": 529.2,
+    "p95": 595.4,
+    "p99": 610.5
+  },
+  "propagation": {
+    "samples": 139552,
+    "avg": 527.3,
+    "p50": 528.4,
+    "p95": 594.4,
+    "p99": 609.6
+  },
+  "converged": "50/50"
+}

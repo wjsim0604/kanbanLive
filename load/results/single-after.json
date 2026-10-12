@@ -1,0 +1,29 @@
+{
+  "label": "single-after",
+  "scenario": {
+    "clients": 50,
+    "boards": 1,
+    "hotClients": 0,
+    "intervalMs": 250,
+    "hotIntervalMs": 100,
+    "durationSec": 30
+  },
+  "moves": 3097,
+  "throughputPerSec": 103.2,
+  "errorRate": 0,
+  "request": {
+    "samples": 3097,
+    "avg": 485.4,
+    "p50": 481.3,
+    "p95": 554.6,
+    "p99": 689.6
+  },
+  "propagation": {
+    "samples": 151753,
+    "avg": 484.6,
+    "p50": 480.6,
+    "p95": 553.7,
+    "p99": 688.8
+  },
+  "converged": "50/50"
+}
