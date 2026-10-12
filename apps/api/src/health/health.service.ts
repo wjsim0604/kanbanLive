@@ -1,4 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { hostname } from 'node:os';
 import Redis from 'ioredis';
 import type { HealthResponse, ServiceStatus } from '@kanban/shared';
 import { PrismaService } from '../prisma/prisma.service';
@@ -17,6 +18,7 @@ export class HealthService {
       status: db === 'up' && redis === 'up' ? 'ok' : 'error',
       db,
       redis,
+      instance: process.env.INSTANCE_ID ?? hostname(),
       uptime: Math.round(process.uptime()),
       timestamp: new Date().toISOString(),
     };

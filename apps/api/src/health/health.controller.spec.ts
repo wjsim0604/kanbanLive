@@ -27,6 +27,7 @@ describe('HealthController (HTTP)', () => {
     status: 'ok',
     db: 'up',
     redis: 'up',
+    instance: 'test',
     uptime: 1,
     timestamp: new Date(0).toISOString(),
     ...overrides,
