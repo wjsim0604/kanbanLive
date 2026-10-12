@@ -7,6 +7,7 @@ import { EventsModule } from './events/events.module';
 import { HealthModule } from './health/health.module';
 import { ListsModule } from './lists/lists.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { RealtimeModule } from './realtime/realtime.module';
 import { RedisModule } from './redis/redis.module';
 
 @Module({
@@ -20,6 +21,7 @@ import { RedisModule } from './redis/redis.module';
     ListsModule,
     CardsModule,
     HealthModule,
+    RealtimeModule,
   ],
 })
 export class AppModule {}
