@@ -79,10 +79,6 @@ export class BoardEventsService {
     return { events: raw.map((r) => JSON.parse(r) as BoardEvent), seq: current };
   }
 
-  async clear(boardId: string): Promise<void> {
-    await this.redis.del(seqKey(boardId), logKey(boardId));
-  }
-
   subscribe(listener: Listener): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);

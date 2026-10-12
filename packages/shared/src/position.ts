@@ -62,15 +62,6 @@ function getIntegerPart(key: string): string {
   return key.slice(0, len);
 }
 
-export function isValidPosition(key: string): boolean {
-  try {
-    validateOrderKey(key);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function validateOrderKey(key: string): void {
   if (key === SMALLEST_INTEGER) throw new Error(`invalid order key: ${key}`);
   const i = getIntegerPart(key);

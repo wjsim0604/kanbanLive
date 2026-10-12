@@ -3,7 +3,6 @@ import {
   comparePositions,
   generateKeyBetween,
   generateNKeysBetween,
-  isValidPosition,
   needsRebalance,
 } from './position';
 
@@ -75,11 +74,4 @@ describe('generateNKeysBetween', () => {
     expect(keys.every((k) => k > 'a0' && k < 'a1')).toBe(true);
     expect([...keys].sort(comparePositions)).toEqual(keys);
   });
-});
-
-describe('isValidPosition', () => {
-  it.each(['a0', 'a1V', 'Zz', 'b00'])('%s 는 유효', (k) => expect(isValidPosition(k)).toBe(true));
-  it.each(['', 'a', 'a00', 'a0!', 'A00000000000000000000000000'])('%s 는 무효', (k) =>
-    expect(isValidPosition(k)).toBe(false),
-  );
 });

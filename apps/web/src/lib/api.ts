@@ -7,7 +7,6 @@ import type {
   CardDetailDto,
   CardDto,
   CommentDto,
-  HealthResponse,
   ListDto,
   Role,
 } from '@kanban/shared';
@@ -77,13 +76,6 @@ async function request<T>(method: string, path: string, body?: unknown, retry = 
 }
 
 export const api = {
-  health: async (signal?: AbortSignal): Promise<HealthResponse> => {
-    const res = await fetch(`${API_URL}/api/health`, { signal });
-    // 503(DB down)도 HealthResponse 본문을 담고 있으므로 그대로 파싱한다.
-    if (!res.ok && res.status !== 503) throw new Error(`Health check failed: ${res.status}`);
-    return (await res.json()) as HealthResponse;
-  },
-
   signup: (body: { email: string; password: string; name: string }) =>
     request<AuthResponse>('POST', '/auth/signup', body),
   login: (body: { email: string; password: string }) =>
