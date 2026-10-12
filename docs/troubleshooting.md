@@ -72,3 +72,23 @@
 - **원인**: `pnpm deploy --ignore-scripts`로 만든 독립 디렉터리에는 이 경로의 bin 링크가 없었다.
 - **해결**: 실행 경로를 `node node_modules/prisma/build/index.js`로 직접 지정했다. 운영 환경에서도 `migrate deploy`가 필요해 `prisma`를 dependencies로 옮겼다. compose의 `migrate` 서비스도 같은 경로를 쓴다.
 - **결과**: 단일 앱 이미지 빌드에 성공했다. 컨테이너 2대 + Nginx 구성에서 E2E가 전부 통과했다.
+
+## 9. 한 보드에 부하가 몰리면 다른 보드까지 느려짐 (Phase 7)
+
+- **문제**: 부하 테스트(핫 보드 시나리오)에서, 거의 쓰지 않는 다른 보드들의 카드 이동 p95가 565ms까지 올라갔다.
+- **원인**:
+  - 구간별 계측 결과, 트랜잭션 콜백이 시작되기까지 평균 155ms를 기다리고 있었다.
+  - 같은 보드의 쓰기들이 DB 커넥션을 잡은 채 보드 행 잠금(`FOR UPDATE`)을 기다리면서 Prisma 커넥션 풀(9개)을 모두 차지했다.
+  - 그래서 다른 보드의 요청까지 풀을 기다리게 되었다.
+- **해결**:
+  - `BoardWriter`에 보드별 인스턴스 내 대기열(`KeyedSemaphore`, 보드당 동시 2)을 넣어, DB 커넥션을 잡기 전에 메모리에서 기다리게 했다.
+  - 핫 패스(카드 이동)의 쿼리 수도 줄였다.
+  - 인스턴스 간 정합성은 기존 DB 잠금이 그대로 보장한다.
+- **결과**: 다른 보드 p95 **564ms → 61ms**, 전체 처리량 **175 → 245 moves/s** (docs/performance.md).
+
+## 10. Sentry SDK 때문에 운영 이미지가 커짐 (Phase 7)
+
+- **문제**: `@sentry/node` 11을 추가한 뒤 Docker 이미지가 696MB에서 843MB로 커졌다.
+- **원인**: `pnpm why`로 보니 `@sentry/node` 11이 `@sentry/bundler-plugins`를 통해 webpack, effect 등 빌드 도구까지 운영 의존성으로 끌고 왔다.
+- **해결**: 런타임 API(`init`, `captureException`)가 같은 `@sentry/node` 10.x로 바꿨다. Sentry는 `SENTRY_DSN`이 있을 때만 초기화한다.
+- **결과**: 이미지 843MB → 769MB. 남은 크기 대부분은 Prisma 엔진과 CLI다 (performance.md의 "남은 과제" 참고).
