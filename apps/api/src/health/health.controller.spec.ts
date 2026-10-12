@@ -26,6 +26,7 @@ describe('HealthController (HTTP)', () => {
   const result = (overrides: Partial<HealthResponse>): HealthResponse => ({
     status: 'ok',
     db: 'up',
+    redis: 'up',
     uptime: 1,
     timestamp: new Date(0).toISOString(),
     ...overrides,
