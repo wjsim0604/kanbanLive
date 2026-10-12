@@ -1,39 +1,40 @@
-import { Columns3 } from 'lucide-react';
-import { ApiStatus } from '@/components/api-status';
-import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { QueryClientProvider } from '@tanstack/react-query';
+import { createBrowserRouter, Navigate, RouterProvider } from 'react-router';
+import { Toaster } from '@/components/ui/sonner';
+import { TooltipProvider } from '@/components/ui/tooltip';
+import { AnonymousOnly, RequireAuth } from '@/features/auth/auth-guards';
+import { AuthPage } from '@/features/auth/auth-page';
+import { BoardPage } from '@/features/board/board-page';
+import { BoardsPage } from '@/features/boards/boards-page';
+import { useBootstrapSession } from '@/hooks/use-bootstrap-session';
+import { queryClient } from '@/lib/query-client';
+
+const router = createBrowserRouter([
+  {
+    element: <AnonymousOnly />,
+    children: [
+      { path: '/login', element: <AuthPage mode="login" /> },
+      { path: '/signup', element: <AuthPage mode="signup" /> },
+    ],
+  },
+  {
+    element: <RequireAuth />,
+    children: [
+      { path: '/boards', element: <BoardsPage /> },
+      { path: '/boards/:boardId', element: <BoardPage /> },
+    ],
+  },
+  { path: '*', element: <Navigate to="/boards" replace /> },
+]);
 
 export default function App() {
+  useBootstrapSession();
   return (
-    <main className="flex min-h-svh items-center justify-center bg-muted/40 p-6">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <Columns3 className="size-5" aria-hidden />
-            <CardTitle className="text-xl">Kanban Live</CardTitle>
-          </div>
-          <CardDescription>여러 사람이 동시에 편집하는 실시간 협업 칸반보드</CardDescription>
-        </CardHeader>
-        <CardContent className="flex items-center justify-between">
-          <span className="text-sm text-muted-foreground">서버 상태</span>
-          <ApiStatus />
-        </CardContent>
-        <CardFooter className="gap-2">
-          <Button className="flex-1" disabled>
-            로그인
-          </Button>
-          <Button className="flex-1" variant="outline" disabled>
-            회원가입
-          </Button>
-        </CardFooter>
-      </Card>
-    </main>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <RouterProvider router={router} />
+        <Toaster position="bottom-right" richColors closeButton />
+      </TooltipProvider>
+    </QueryClientProvider>
   );
 }
