@@ -77,6 +77,8 @@ export const SortableCard = memo(function SortableCard({
       data-testid="card"
       data-card-id={card.id}
       {...attributes}
+      // 드래그가 비활성(뷰어)이어도 카드 상세는 열 수 있어야 하므로 aria-disabled를 덮어쓴다.
+      aria-disabled={undefined}
       {...listeners}
       aria-roledescription="카드"
       aria-label={card.title}
