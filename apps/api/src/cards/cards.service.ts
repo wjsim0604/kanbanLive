@@ -103,10 +103,13 @@ export class CardsService {
    * 클라이언트 hint(before/after)가 오래된 경우에도 planInsert가 서버 순서 기준으로 보정한다.
    */
   async move(userId: string, cardId: string, dto: MoveCardDto): Promise<CardDto> {
-    const boardId = await this.access.boardIdOfCard(cardId);
-    await this.access.requireRole(userId, boardId, 'EDITOR');
+    const { boardId } = await this.access.requireCardRole(userId, cardId, 'EDITOR');
     return this.writer.write(boardId, userId, async (tx) => {
-      const card = await tx.card.findUnique({ where: { id: cardId }, select: { listId: true } });
+      // 잠금 구간 안의 쿼리는 최소화한다: 카드(+댓글 수), 대상 리스트, 형제 position, UPDATE
+      const card = await tx.card.findUnique({
+        where: { id: cardId },
+        include: { _count: { select: { comments: true } } },
+      });
       if (!card) throw notFound('Card');
       const target = await tx.list.findUnique({
         where: { id: dto.toListId },
@@ -123,13 +126,14 @@ export class CardsService {
       });
       const events: BoardEventInput[] = [];
       if (plan.rebalance) events.push(await this.applyRebalance(tx, plan.rebalance, cardId));
+      // 결과 DTO에 필요한 값(boardId, 댓글 수)은 이미 알고 있으므로 join/count 없이 갱신만 한다.
       const moved = await tx.card.update({
         where: { id: cardId },
         data: { listId: dto.toListId, position: plan.position, version: { increment: 1 } },
-        include: cardInclude,
       });
-      events.push(boardEvent('card:moved', { card: toCardDto(moved), fromListId: card.listId }));
-      return { result: toCardDto(moved), events };
+      const result = toCardDto({ ...moved, list: { boardId }, _count: card._count });
+      events.push(boardEvent('card:moved', { card: result, fromListId: card.listId }));
+      return { result, events };
     });
   }
 

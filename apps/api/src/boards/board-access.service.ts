@@ -28,6 +28,35 @@ export class BoardAccessService {
     return role;
   }
 
+  /**
+   * 카드가 속한 보드와 내 권한을 쿼리 한 번으로 확인한다 (boardIdOfCard + requireRole을 합친 것).
+   * 카드 이동처럼 빈도가 높은 경로의 DB 왕복을 줄이기 위한 최적화 (docs/performance.md).
+   */
+  async requireCardRole(
+    userId: string,
+    cardId: string,
+    required: Role,
+  ): Promise<{ boardId: string; role: Role }> {
+    const card = await this.prisma.card.findUnique({
+      where: { id: cardId },
+      select: {
+        list: {
+          select: {
+            boardId: true,
+            board: { select: { members: { where: { userId }, select: { role: true } } } },
+          },
+        },
+      },
+    });
+    if (!card) throw notFound('Card');
+    const role = card.list.board.members[0]?.role;
+    if (!role) throw forbidden('You are not a member of this board', ErrorCode.NOT_A_MEMBER);
+    if (!hasRole(role, required)) {
+      throw forbidden(`This action requires ${required} role`, ErrorCode.INSUFFICIENT_ROLE);
+    }
+    return { boardId: card.list.boardId, role };
+  }
+
   async getRole(userId: string, boardId: string): Promise<Role | null> {
     const member = await this.prisma.boardMember.findUnique({
       where: { boardId_userId: { boardId, userId } },
