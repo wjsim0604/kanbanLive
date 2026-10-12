@@ -3,14 +3,17 @@ loadEnvFile();
 
 import { Logger } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { serveWeb } from './common/serve-web';
 import { setupApp } from './common/setup-app';
 import { APP_CONFIG, type AppConfig } from './config';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const config = app.get<AppConfig>(APP_CONFIG);
   setupApp(app, config);
+  if (config.webDistDir) serveWeb(app, config.webDistDir);
   app.enableShutdownHooks();
 
   await app.listen(config.port);
