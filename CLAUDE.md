@@ -9,22 +9,38 @@
 
 ## 2. 기술 스택 (기본값)
 
-| 영역 | 선택 |
-|---|---|
-| 프론트엔드 | React + TypeScript + Vite, TanStack Query, Zustand, dnd-kit(드래그 앤 드롭), Tailwind CSS |
-| 백엔드 | Node.js + NestJS + TypeScript, Socket.IO(WebSocket Gateway) |
-| DB | PostgreSQL + Prisma |
-| 캐시/메시징 | Redis (Socket.IO Redis adapter, Pub/Sub) |
-| 인증 | JWT (access + refresh), 비밀번호는 argon2 또는 bcrypt |
-| 테스트 | Vitest/Jest (단위), Playwright (E2E, 브라우저 2개 동시 접속) |
-| 인프라 | Docker, docker-compose(로컬), GitHub Actions(CI), 배포는 Fly.io 또는 Render |
-| 문서 | OpenAPI(Swagger), Mermaid 다이어그램 |
+| 영역        | 선택                                                                                                                        |
+| ----------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 프론트엔드  | React + TypeScript + Vite, TanStack Query, Zustand, dnd-kit(드래그 앤 드롭), Tailwind CSS v4 + **shadcn/ui**(디자인 시스템) |
+| 백엔드      | Node.js + NestJS + TypeScript, Socket.IO(WebSocket Gateway)                                                                 |
+| DB          | PostgreSQL + Prisma                                                                                                         |
+| 캐시/메시징 | Redis (Socket.IO Redis adapter, Pub/Sub)                                                                                    |
+| 인증        | JWT (access + refresh), 비밀번호는 argon2 또는 bcrypt                                                                       |
+| 테스트      | Vitest/Jest (단위), Playwright (E2E, 브라우저 2개 동시 접속)                                                                |
+| 인프라      | Docker, docker-compose(로컬), GitHub Actions(CI), 배포는 Fly.io 또는 Render                                                 |
+| 문서        | OpenAPI(Swagger), Mermaid 다이어그램                                                                                        |
 
 구조: 모노레포 (`apps/web`, `apps/api`, `packages/shared`). 공유 타입(이벤트 페이로드 등)은 `packages/shared`에 둔다.
+
+**확정 버전/구성 (Phase 1, 근거는 `docs/decisions/001-monorepo-setup.md`)**
+
+- Node 22, pnpm 10 workspace, TypeScript 6.0 (TS 7은 typescript-eslint 미지원), NestJS 11 (CommonJS), Prisma 6, React 19, Vite 8, Tailwind v4, ESLint 9 flat config
+- UI는 **shadcn/ui**를 사용한다. 컴포넌트는 `apps/web/src/components/ui`에 두고 `pnpm dlx shadcn@latest add <name>`(apps/web에서)로 추가한다. 직접 스타일링보다 shadcn 컴포넌트 + 테마 토큰(`bg-primary`, `text-muted-foreground` 등)을 우선한다.
+- `@kanban/shared`: api는 빌드 산출물(`dist`, CJS)을, web은 Vite alias로 소스를 직접 참조한다. api 타입체크/실행 전 `pnpm --filter @kanban/shared build` 필요.
+- 주요 명령: `pnpm dev`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm build`, `pnpm format`
+- 통합 테스트: `pnpm --filter @kanban/api test:e2e` (PostgreSQL/Redis 필요), `pnpm --filter @kanban/e2e test:e2e` (서버 실행 중), 부하: `pnpm --filter @kanban/load move-latency`
+
+**현재 구현 상태 (Phase 1~8 완료)**
+
+- 모든 보드 쓰기는 `BoardWriter.write()`(보드별 대기열 → `FOR UPDATE` → seq 발급 → Activity → COMMIT → 이벤트 발행)를 거친다. 새 쓰기 기능도 반드시 이 경로를 쓴다.
+- 순서 계산(`planInsert`)과 클라이언트 리듀서(`applyBoardEvent`, `EventSequencer`)는 `packages/shared`에 있다. 서버와 클라이언트가 같은 코드를 쓴다.
+- 서버 → 클라이언트 변경 이벤트는 단일 소켓 이벤트 `board:event` 봉투로 보낸다(ADR 005). 새 이벤트 타입은 `BoardEventPayloads`와 `applyBoardEvent`에 함께 추가한다.
+- 문서: `docs/architecture.md`, `docs/decisions/`(ADR 001~008), `docs/troubleshooting.md`, `docs/performance.md`, `docs/deployment.md`
 
 ## 3. 기능 명세
 
 ### MVP (필수)
+
 - 회원가입 / 로그인 / 로그아웃
 - 보드 생성·조회·수정·삭제, 보드 멤버 초대
 - 리스트(컬럼) 생성·이름 변경·삭제·순서 이동
@@ -34,6 +50,7 @@
 - 접속자 표시(Presence): 현재 보드를 보고 있는 사람 아바타
 
 ### 차별화 (MVP 이후, 2~3개 선택)
+
 1. 낙관적 업데이트 + 서버 확정/롤백
 2. 동시 이동 충돌 처리 (fractional indexing, 서버 순서 확정)
 3. 재연결 시 누락 이벤트 복구
@@ -88,25 +105,30 @@ POST   /cards/:id/comments
 ## 7. 핵심 로직 설계 가이드
 
 **낙관적 업데이트**
+
 1. 사용자가 카드를 드롭하면 UI를 즉시 갱신하고 서버에 `card:move` 전송
 2. 서버가 검증·저장 후 확정 이벤트(`card:moved`, seq 포함)를 브로드캐스트
 3. 실패 응답(권한 없음, 카드 삭제됨 등)이 오면 이전 상태로 롤백하고 토스트 표시
 
 **동시 이동 충돌**
+
 - 순서는 fractional indexing으로 계산하되, 최종 `position`은 **서버가 확정**한다.
 - 두 사용자가 같은 카드를 동시에 옮기면 서버에 도착한 순서대로 처리(last-write-wins)하고, 결과를 모두에게 브로드캐스트해 수렴시킨다.
 - position이 충돌하거나 간격이 너무 좁아지면 해당 리스트를 재정렬(rebalance)한다.
 
 **재연결 복구**
+
 - 클라이언트는 마지막으로 처리한 `seq`를 보관한다.
 - 재연결 시 `sync { boardId, lastSeq }`를 보내고, 서버는 누락된 이벤트를 재전송하거나(범위 이내) 전체 스냅샷을 내려준다.
 - 이벤트 로그는 Redis(Stream/List)에 최근 N개만 보관.
 
 **다중 서버 확장**
+
 - Socket.IO Redis adapter로 서버 인스턴스 간 브로드캐스트 공유.
 - 로컬에서 docker-compose로 API 2개 + Nginx(로드밸런서) 구성해 검증.
 
 **코딩 규칙**
+
 - TypeScript strict 모드. `any` 금지.
 - 비즈니스 로직은 서비스 계층, 컨트롤러/게이트웨이는 얇게.
 - 핵심 로직(position 계산, 이동 처리, seq 발급, 권한 검사)은 반드시 단위 테스트 작성.

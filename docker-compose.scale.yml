@@ -1,0 +1,43 @@
+# 수평 확장 검증용: api 인스턴스 2대 + Nginx 로드밸런서.
+# 두 인스턴스는 Redis adapter로 Socket.IO 브로드캐스트와 presence를 공유한다.
+#   docker compose -f docker-compose.yml -f docker-compose.scale.yml --profile scale up --build
+#   → http://localhost:8080 (브라우저 두 개로 접속: 서로 다른 인스턴스에 붙어도 동기화된다)
+
+x-scaled-app: &scaled-app
+  profiles: [scale]
+  image: kanban-live
+  depends_on:
+    migrate:
+      condition: service_completed_successfully
+    redis:
+      condition: service_healthy
+
+x-scaled-env: &scaled-env
+  DATABASE_URL: postgresql://${POSTGRES_USER:-kanban}:${POSTGRES_PASSWORD:-kanban}@postgres:5432/${POSTGRES_DB:-kanban}?schema=public
+  REDIS_URL: redis://redis:6379
+  JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-local-compose-secret}
+  WEB_ORIGIN: http://localhost:8080
+
+services:
+  app1:
+    <<: *scaled-app
+    environment:
+      <<: *scaled-env
+      INSTANCE_ID: app1
+
+  app2:
+    <<: *scaled-app
+    environment:
+      <<: *scaled-env
+      INSTANCE_ID: app2
+
+  nginx:
+    profiles: [scale]
+    image: nginx:1.27-alpine
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - '8080:80'
+    depends_on:
+      - app1
+      - app2

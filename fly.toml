@@ -1,0 +1,42 @@
+# Fly.io 배포 설정 (단일 앱 이미지: api + web)
+# 최초 1회: docs/deployment.md 참고 (fly launch --no-deploy, Postgres/Redis 연결, secrets 설정)
+app = 'kanban-live'
+primary_region = 'nrt'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[deploy]
+  # 마이그레이션 + 데모 시드 (실패하면 배포 중단)
+  release_command = 'sh scripts/release.sh'
+  strategy = 'rolling'
+
+[env]
+  NODE_ENV = 'production'
+  PORT = '3000'
+  LOG_LEVEL = 'info'
+  SEED_DEMO = 'true'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = 'connections'
+    soft_limit = 800
+    hard_limit = 1000
+
+  [[http_service.checks]]
+    grace_period = '20s'
+    interval = '15s'
+    method = 'GET'
+    path = '/api/health'
+    timeout = '3s'
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1

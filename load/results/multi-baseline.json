@@ -1,0 +1,29 @@
+{
+  "label": "multi-baseline",
+  "scenario": {
+    "clients": 50,
+    "boards": 10,
+    "hotClients": 0,
+    "intervalMs": 250,
+    "hotIntervalMs": 100,
+    "durationSec": 30
+  },
+  "moves": 6003,
+  "throughputPerSec": 200.1,
+  "errorRate": 0,
+  "request": {
+    "samples": 6003,
+    "avg": 36.6,
+    "p50": 27.7,
+    "p95": 95.7,
+    "p99": 149.8
+  },
+  "propagation": {
+    "samples": 24012,
+    "avg": 36,
+    "p50": 27.2,
+    "p95": 94.1,
+    "p99": 149.3
+  },
+  "converged": "50/50"
+}

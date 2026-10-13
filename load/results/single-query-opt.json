@@ -1,0 +1,23 @@
+{
+  "label": "opt1",
+  "clients": 50,
+  "durationSec": 30,
+  "intervalMs": 250,
+  "moves": 3110,
+  "throughputPerSec": 103.7,
+  "errorRate": 0,
+  "request": {
+    "avg": 482.9,
+    "p50": 480.6,
+    "p95": 553.6,
+    "p99": 584.9
+  },
+  "propagation": {
+    "samples": 152390,
+    "avg": 482.2,
+    "p50": 479.8,
+    "p95": 552.9,
+    "p99": 584.2
+  },
+  "converged": "50/50"
+}
