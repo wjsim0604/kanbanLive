@@ -92,3 +92,17 @@
 - **원인**: `pnpm why`로 보니 `@sentry/node` 11이 `@sentry/bundler-plugins`를 통해 webpack, effect 등 빌드 도구까지 운영 의존성으로 끌고 왔다.
 - **해결**: 런타임 API(`init`, `captureException`)가 같은 `@sentry/node` 10.x로 바꿨다. Sentry는 `SENTRY_DSN`이 있을 때만 초기화한다.
 - **결과**: 이미지 843MB → 769MB. 남은 크기 대부분은 Prisma 엔진과 CLI다 (performance.md의 "남은 과제" 참고).
+
+## 11. 접속자 계산 타임아웃이 처리되지 않아 프로세스가 종료될 수 있음 (Phase 8 이후)
+
+- **문제**: API 통합 테스트에서 테스트 46개는 모두 통과하는데, `realtime` 스위트가 간헐적으로 `Test suite failed to run`으로 끝났다. 원인 메시지는 `timeout reached while waiting for fetchSockets response`였다.
+- **원인**:
+  - presence 계산(`emitPresence`)은 Redis adapter의 `fetchSockets()`로 다른 인스턴스에 접속 목록을 묻는다. 응답이 `requestsTimeout`(3초) 안에 오지 않으면 reject된다.
+  - 호출부가 `void this.emitPresence(...)`처럼 결과를 기다리지 않아 이 reject를 아무도 처리하지 않았다.
+  - 테스트에서는 앱 종료와 소켓 끊김 처리가 겹칠 때 드러났다.
+  - 운영에서도 Redis 지연이나 인스턴스 재시작 때 같은 일이 생길 수 있다. Node 22는 처리되지 않은 reject가 나면 **프로세스를 종료**하므로 접속자 표시 하나 때문에 서버가 죽을 수 있었다.
+- **해결**:
+  - `emitPresence`가 `fetchSockets` 실패를 잡아 경고 로그만 남기고 끝나게 했다. presence는 다음 접속·종료 때 다시 계산된다.
+  - `member:removed` 시 소켓을 내보내는 부분도 같은 방식으로 감쌌다. 정리에 실패해도 이후 쓰기와 sync는 매번 DB 권한 검사로 거부되므로 정합성 문제는 없다.
+  - `board.gateway.spec.ts`에 회귀 테스트를 추가했다(수정 전 코드에서 실패, 수정 후 통과).
+- **결과**: API 통합 테스트 3회 연속 실행에서 스위트 6개, 테스트 46개가 모두 통과했고 실패 표시가 사라졌다.

@@ -112,15 +112,35 @@ export class BoardGateway
     if (event.type === 'board:deleted') {
       this.server.in(room).socketsLeave(room);
     } else if (event.type === 'member:removed') {
-      const sockets = await this.server.in(room).fetchSockets();
-      for (const s of sockets) if (s.data.user.id === event.payload.userId) s.leave(room);
+      try {
+        const sockets = await this.server.in(room).fetchSockets();
+        for (const s of sockets) if (s.data.user.id === event.payload.userId) s.leave(room);
+      } catch (err) {
+        // 룸에 남아도 이후 쓰기/sync는 매번 DB 권한 검사로 거부되므로 정합성 문제는 없다.
+        this.logger.warn(
+          { boardId: event.boardId, err: String(err) },
+          'failed to evict removed member sockets',
+        );
+      }
       void this.emitPresence(event.boardId);
     }
   }
 
+  /**
+   * 접속자 목록을 다시 계산해 알린다. 실패해도 예외를 던지지 않는다:
+   * 호출부가 대부분 fire-and-forget(void)이고, Redis adapter의 fetchSockets는 다른 인스턴스 응답이
+   * 늦으면 타임아웃으로 reject된다. 처리되지 않은 reject는 Node 프로세스를 종료시키므로 여기서 삼키고 로그만 남긴다.
+   * (presence는 다음 접속/종료 때 다시 계산된다)
+   */
   async emitPresence(boardId: string): Promise<void> {
     const room = boardRoom(boardId);
-    const sockets = await this.server.in(room).fetchSockets();
+    let sockets: Awaited<ReturnType<ReturnType<AppServer['in']>['fetchSockets']>>;
+    try {
+      sockets = await this.server.in(room).fetchSockets();
+    } catch (err) {
+      this.logger.warn({ boardId, err: String(err) }, 'failed to compute presence');
+      return;
+    }
     const users = new Map<string, PresenceUser>();
     for (const s of sockets) {
       const u = s.data.user;
