@@ -147,6 +147,9 @@ export function useBoardRealtime(boardId: string, enabled: boolean) {
 
     socket.on('disconnect', (reason) => {
       setStatus(reason === 'io client disconnect' ? 'offline' : 'reconnecting');
+      // 서버가 끊은 경우(access token 만료)에는 Socket.IO가 자동 재접속하지 않으므로 직접 재접속한다.
+      // auth 콜백이 최신 토큰을 싣고, 토큰이 만료됐으면 connect_error(UNAUTHORIZED) → refresh → 재접속으로 이어진다.
+      if (reason === 'io server disconnect') socket.connect();
     });
 
     socket.on('connect_error', (err) => {

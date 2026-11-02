@@ -42,6 +42,23 @@ export class AppIoAdapter extends IoAdapter {
 
   override async close(server: Server): Promise<void> {
     await super.close(server);
-    await Promise.all(this.clients.map((c) => c.quit().catch(() => undefined)));
+    await Promise.all(this.clients.map((c) => closeWhenSettled(c)));
   }
+}
+
+/**
+ * 연결이 끝나기 전에 quit하면 adapter가 이미 보낸 (P)SUBSCRIBE가 "Connection is closed"로 reject되는데,
+ * adapter 내부 promise라 처리되지 않은 reject가 된다 (기동 직후 종료 시). 준비될 때까지 잠시 기다린 뒤 닫는다.
+ */
+async function closeWhenSettled(client: Redis, timeoutMs = 2_000): Promise<void> {
+  if (client.status === 'connecting' || client.status === 'connect' || client.status === 'wait') {
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(resolve, timeoutMs);
+      client.once('ready', () => {
+        clearTimeout(timer);
+        resolve();
+      });
+    });
+  }
+  await client.quit().catch(() => client.disconnect());
 }

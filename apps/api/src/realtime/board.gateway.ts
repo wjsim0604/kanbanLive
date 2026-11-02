@@ -76,12 +76,31 @@ export class BoardGateway
         const payload = this.auth.verifyAccessToken(token);
         socket.data.user = { id: payload.sub, email: payload.email, name: payload.name };
         socket.data.boardIds = [];
+        this.expireWithToken(socket, payload.exp);
         next();
       } catch {
         next(new Error(UNAUTHORIZED));
       }
     });
     this.unsubscribe = this.events.subscribe((e) => void this.broadcast(e));
+  }
+
+  /**
+   * access token이 만료되면 소켓 연결도 끊는다. handshake에서만 토큰을 검사하면 로그아웃·만료 후에도
+   * 연결이 무기한 유지되어 이벤트를 계속 받게 된다. 클라이언트는 최신 토큰으로 재접속하고(만료 시 refresh),
+   * 끊긴 동안의 이벤트는 sync로 복구한다.
+   */
+  private expireWithToken(socket: AppSocket, exp: number | undefined): void {
+    if (!exp) return;
+    const ms = Math.max(0, exp * 1000 - Date.now());
+    const timer = setTimeout(() => {
+      this.logger.debug(
+        { socketId: socket.id, userId: socket.data.user?.id },
+        'access token expired, disconnecting',
+      );
+      socket.disconnect(true);
+    }, ms);
+    socket.once('disconnect', () => clearTimeout(timer));
   }
 
   onModuleDestroy(): void {
