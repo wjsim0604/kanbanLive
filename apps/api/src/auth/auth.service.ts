@@ -8,7 +8,7 @@ import { toUserDto } from '../common/mappers';
 import { userSelect } from '../common/prisma-select';
 import { PrismaService } from '../prisma/prisma.service';
 import type { LoginDto, SignupDto } from './dto';
-import { hashPassword, verifyPassword } from './password';
+import { hashPassword, verifyAgainstDummy, verifyPassword } from './password';
 import { type AccessTokenPayload, generateRefreshToken, hashToken } from './tokens';
 
 export interface IssuedTokens extends AuthResponse {
@@ -41,8 +41,11 @@ export class AuthService {
 
   async login(dto: LoginDto): Promise<IssuedTokens> {
     const user = await this.prisma.user.findUnique({ where: { email: dto.email } });
-    // 사용자 존재 여부를 노출하지 않도록 동일한 에러를 사용한다.
-    if (!user || !(await verifyPassword(dto.password, user.passwordHash))) {
+    // 사용자 존재 여부를 노출하지 않도록 같은 에러를 쓰고, 없는 계정도 같은 비용의 해시 비교를 한다 (타이밍 공격 방지).
+    const valid = user
+      ? await verifyPassword(dto.password, user.passwordHash)
+      : await verifyAgainstDummy(dto.password);
+    if (!user || !valid) {
       throw new UnauthorizedException({
         message: 'Invalid email or password',
         code: ErrorCode.INVALID_CREDENTIALS,
@@ -92,7 +95,10 @@ export class AuthService {
   }
 
   verifyAccessToken(token: string): AccessTokenPayload {
-    return this.jwt.verify<AccessTokenPayload>(token, { secret: this.config.jwtAccessSecret });
+    return this.jwt.verify<AccessTokenPayload>(token, {
+      secret: this.config.jwtAccessSecret,
+      algorithms: ['HS256'],
+    });
   }
 
   private async revokeAll(userId: string): Promise<void> {
@@ -106,6 +112,7 @@ export class AuthService {
     const payload: AccessTokenPayload = { sub: user.id, email: user.email, name: user.name };
     const accessToken = await this.jwt.signAsync(payload, {
       secret: this.config.jwtAccessSecret,
+      algorithm: 'HS256',
       expiresIn: this.config.accessTokenTtlSec,
     });
     const refreshToken = generateRefreshToken();

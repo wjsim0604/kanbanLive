@@ -6,6 +6,8 @@ export interface AccessTokenPayload {
   sub: string;
   email: string;
   name: string;
+  /** 만료 시각 (초, JWT 표준 클레임). 서명 시 자동으로 채워진다 */
+  exp?: number;
 }
 
 export const generateRefreshToken = (): string => randomBytes(32).toString('base64url');

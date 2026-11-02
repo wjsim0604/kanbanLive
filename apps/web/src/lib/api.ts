@@ -127,6 +127,7 @@ export const api = {
 
 export function errorMessage(err: unknown): string {
   if (err instanceof ApiError) {
+    if (err.status === 429) return '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.';
     switch (err.code) {
       case 'VERSION_CONFLICT':
         return '다른 사용자가 먼저 수정했습니다. 최신 내용으로 갱신했어요.';

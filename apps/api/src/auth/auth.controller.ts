@@ -1,4 +1,4 @@
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Inject, Post, Req, Res, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiCookieAuth, ApiTags } from '@nestjs/swagger';
 import type { Request, Response } from 'express';
 import type { AuthResponse, UserDto } from '@kanban/shared';
@@ -6,6 +6,8 @@ import { APP_CONFIG, type AppConfig } from '../config';
 import { CurrentUser, type AuthUser } from '../common/current-user.decorator';
 import { Public } from '../common/public.decorator';
 import { API_PREFIX } from '../common/setup-app';
+import { SkipThrottle } from '@nestjs/throttler';
+import { ACCOUNT_THROTTLER, AuthThrottlerGuard } from './auth-throttler.guard';
 import { AuthService, type IssuedTokens } from './auth.service';
 import { LoginDto, SignupDto } from './dto';
 import { REFRESH_COOKIE } from './tokens';
@@ -23,6 +25,7 @@ export class AuthController {
   ) {}
 
   @Public()
+  @UseGuards(AuthThrottlerGuard)
   @Post('signup')
   async signup(
     @Body() dto: SignupDto,
@@ -32,6 +35,7 @@ export class AuthController {
   }
 
   @Public()
+  @UseGuards(AuthThrottlerGuard)
   @Post('login')
   @HttpCode(200)
   async login(
@@ -43,6 +47,9 @@ export class AuthController {
 
   @Public()
   @ApiCookieAuth()
+  @UseGuards(AuthThrottlerGuard)
+  // 이메일이 없는 요청이라 계정 단위 제한은 IP 단위가 되어 버린다 → IP 제한만 적용
+  @SkipThrottle({ [ACCOUNT_THROTTLER]: true })
   @Post('refresh')
   @HttpCode(200)
   async refresh(
