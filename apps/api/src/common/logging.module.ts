@@ -3,6 +3,8 @@ import { hostname } from 'node:os';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { LoggerModule } from 'nestjs-pino';
 
+const REQUEST_ID = /^[A-Za-z0-9._-]{1,64}$/;
+
 /**
  * 구조화 로그 (pino).
  * - 운영: JSON 한 줄 로그 → 로그 수집기(Fly.io logs, Loki 등)에서 필드 단위 검색
@@ -18,8 +20,10 @@ export const AppLoggerModule = LoggerModule.forRoot({
         ? undefined
         : { target: 'pino-pretty', options: { singleLine: true, translateTime: 'SYS:HH:MM:ss.l' } },
     genReqId: (req: IncomingMessage, res: ServerResponse) => {
+      // 클라이언트가 보낸 요청 ID는 형식이 맞을 때만 이어 쓴다 (로그 오염·과도한 길이 방지)
       const existing = req.headers['x-request-id'];
-      const id = typeof existing === 'string' && existing ? existing : randomUUID();
+      const id =
+        typeof existing === 'string' && REQUEST_ID.test(existing) ? existing : randomUUID();
       res.setHeader('X-Request-Id', id);
       return id;
     },
