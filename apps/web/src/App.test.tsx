@@ -6,6 +6,9 @@ import { useAuthStore } from './stores/auth';
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
+// 페이지는 React.lazy로 지연 로딩되므로 기본 대기 시간(1초)보다 넉넉히 기다린다 (CI·부하 상황 대비)
+const LAZY_ROUTE = { timeout: 5000 };
+
 const session: AuthResponse = {
   accessToken: 'token',
   user: { id: 'u1', email: 'a@test.dev', name: 'Alice' },
@@ -39,7 +42,7 @@ describe('App', () => {
   it('세션이 없으면 로그인 화면으로 이동한다', async () => {
     mockApi({ '/api/auth/refresh': () => json({ message: 'Missing refresh token' }, 401) });
     render(<App />);
-    expect(await screen.findByRole('button', { name: '로그인' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: '로그인' }, LAZY_ROUTE)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '데모 계정으로 둘러보기' })).toBeInTheDocument();
   });
 
@@ -49,7 +52,7 @@ describe('App', () => {
       '/api/boards': () => json([board]),
     });
     render(<App />);
-    expect(await screen.findByText('포트폴리오')).toBeInTheDocument();
+    expect(await screen.findByText('포트폴리오', {}, LAZY_ROUTE)).toBeInTheDocument();
     expect(screen.getByText('소유자')).toBeInTheDocument();
     const boardsCall = fetchSpy.mock.calls.find(([u]) => String(u).endsWith('/api/boards'));
     expect((boardsCall?.[1]?.headers as Record<string, string>).Authorization).toBe('Bearer token');
