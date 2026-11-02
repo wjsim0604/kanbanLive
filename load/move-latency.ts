@@ -14,6 +14,8 @@
  *   - 핫 보드:    CLIENTS=50 BOARDS=10 HOT_CLIENTS=40 HOT_INTERVAL_MS=100
  *                 → 첫 보드에 40명이 추가로 몰릴 때 나머지(cold) 보드의 지연을 따로 집계한다.
  *
+ * 주의: 준비 단계에서 사용자를 대량 가입시키므로 api의 AUTH_RATE_LIMIT_PER_IP를 충분히 올려서 실행한다 (예: 10000).
+ *
  * 사용: BASE_URL=http://localhost:3000 CLIENTS=20 DURATION_SEC=30 INTERVAL_MS=500 pnpm --filter @kanban/load move-latency
  */
 import { randomUUID } from 'node:crypto';

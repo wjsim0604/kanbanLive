@@ -106,3 +106,20 @@
   - `member:removed` 시 소켓을 내보내는 부분도 같은 방식으로 감쌌다. 정리에 실패해도 이후 쓰기와 sync는 매번 DB 권한 검사로 거부되므로 정합성 문제는 없다.
   - `board.gateway.spec.ts`에 회귀 테스트를 추가했다(수정 전 코드에서 실패, 수정 후 통과).
 - **결과**: API 통합 테스트 3회 연속 실행에서 스위트 6개, 테스트 46개가 모두 통과했고 실패 표시가 사라졌다.
+
+## 12. 이름 붙은 요청 제한의 429에 표준 `Retry-After` 헤더가 없음 (보안 점검)
+
+- **문제**: 로그인 요청 제한 테스트에서 429 응답에 `Retry-After` 헤더가 없었다.
+- **원인**: `@nestjs/throttler` v6는 이름 붙은 throttler(`account`, `ip`)를 쓰면 `Retry-After-account`처럼 이름이 붙은 비표준 헤더만 보낸다.
+- **해결**: `AuthThrottlerGuard.throwThrottlingException`을 오버라이드해 표준 `Retry-After`(초)를 함께 설정했다.
+- **결과**: e2e(`security.e2e-spec.ts`)에서 429와 `Retry-After`를 함께 검증한다.
+
+## 13. 기동 직후 종료하면 Redis adapter에서 "Connection is closed" 미처리 에러 (보안 점검)
+
+- **문제**: 앱을 만들자마자 닫는 테스트(Swagger 비활성 확인)가 `Connection is closed`로 실패했다. ioredis 이벤트 핸들러에서 난 처리되지 않은 reject였다.
+- **원인**:
+  - Socket.IO Redis adapter는 생성 시 `PSUBSCRIBE`를 보내지만 그 promise를 처리하지 않는다.
+  - 연결이 끝나기 전에 `quit()`하면 이 명령이 reject되어 처리되지 않은 에러가 된다.
+  - 운영에서도 배포 직후 곧바로 재시작하는 경우 같은 경합이 생길 수 있다.
+- **해결**: `AppIoAdapter.close()`가 Redis 클라이언트가 `ready`가 될 때까지 최대 2초 기다린 뒤 닫는다(`closeWhenSettled`). quit이 실패하면 `disconnect()`로 마무리한다.
+- **결과**: 보안 e2e 3회 연속, 전체 API e2e 2회 연속 통과(스위트 7개, 테스트 54개).

@@ -16,6 +16,8 @@ primary_region = 'nrt'
   PORT = '3000'
   LOG_LEVEL = 'info'
   SEED_DEMO = 'true'
+  # 포트폴리오 데모라 API 문서를 공개한다 (운영 기본값은 비공개, docs/decisions/009)
+  SWAGGER_ENABLED = 'true'
 
 [http_service]
   internal_port = 3000

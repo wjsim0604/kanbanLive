@@ -71,15 +71,18 @@ fly tokens create deploy -x 999999h   # 출력된 토큰을
 
 ## 환경 변수
 
-| 변수                                              | 필수      | 설명                                                                   |
-| ------------------------------------------------- | --------- | ---------------------------------------------------------------------- |
-| `DATABASE_URL`                                    | ✅        | PostgreSQL 연결 문자열                                                 |
-| `REDIS_URL`                                       | ✅        | Redis 연결 문자열                                                      |
-| `JWT_ACCESS_SECRET`                               | ✅ (운영) | access token 서명 키. 운영에서 없으면 기동 실패                        |
-| `WEB_ORIGIN`                                      |           | CORS 허용 오리진 (같은 오리진 서빙이면 배포 URL)                       |
-| `WEB_DIST_DIR`                                    |           | 설정 시 web 빌드 결과물 서빙 (이미지에서 `/app/web`)                   |
-| `SEED_DEMO`                                       |           | `true`면 release 시 데모 데이터 시드                                   |
-| `LOG_LEVEL`                                       |           | pino 로그 레벨 (기본 운영 `info`)                                      |
-| `SENTRY_DSN`                                      |           | 설정 시 5xx 에러를 Sentry로 전송                                       |
-| `BOARD_WRITE_CONCURRENCY`                         |           | 인스턴스 내 보드별 동시 쓰기 트랜잭션 수 (기본 2, docs/performance.md) |
-| `ACCESS_TOKEN_TTL_SEC` / `REFRESH_TOKEN_TTL_DAYS` |           | 토큰 수명 (기본 900초 / 14일)                                          |
+| 변수                                                     | 필수      | 설명                                                                                        |
+| -------------------------------------------------------- | --------- | ------------------------------------------------------------------------------------------- |
+| `DATABASE_URL`                                           | ✅        | PostgreSQL 연결 문자열                                                                      |
+| `REDIS_URL`                                              | ✅        | Redis 연결 문자열                                                                           |
+| `JWT_ACCESS_SECRET`                                      | ✅ (운영) | access token 서명 키. 운영에서 없으면 기동 실패                                             |
+| `WEB_ORIGIN`                                             |           | CORS 허용 오리진 (같은 오리진 서빙이면 배포 URL)                                            |
+| `WEB_DIST_DIR`                                           |           | 설정 시 web 빌드 결과물 서빙 (이미지에서 `/app/web`)                                        |
+| `SEED_DEMO`                                              |           | `true`면 release 시 데모 데이터 시드                                                        |
+| `LOG_LEVEL`                                              |           | pino 로그 레벨 (기본 운영 `info`)                                                           |
+| `SENTRY_DSN`                                             |           | 설정 시 5xx 에러를 Sentry로 전송                                                            |
+| `SWAGGER_ENABLED`                                        |           | `/docs` 노출 여부 (운영 기본 `false`, fly.toml에서 데모용으로 `true`)                       |
+| `TRUST_PROXY`                                            |           | 신뢰할 프록시 단 수 (운영 기본 `1`: Fly Proxy/Nginx). 요청 제한의 클라이언트 IP 판별에 사용 |
+| `AUTH_RATE_LIMIT_PER_ACCOUNT` / `AUTH_RATE_LIMIT_PER_IP` |           | 로그인·가입·refresh 1분당 한도 (기본 10 / 100). 부하 테스트 시 올린다                       |
+| `BOARD_WRITE_CONCURRENCY`                                |           | 인스턴스 내 보드별 동시 쓰기 트랜잭션 수 (기본 2, docs/performance.md)                      |
+| `ACCESS_TOKEN_TTL_SEC` / `REFRESH_TOKEN_TTL_DAYS`        |           | 토큰 수명 (기본 900초 / 14일)                                                               |
